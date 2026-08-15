@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Turnos Peluquería</title>
+
+<!-- Instalación como app (Android / iOS) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2C2C2E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Turnos">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+
+<!-- Service Worker: habilita el funcionamiento offline garantizado -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./ServiceWorker.js').catch(err => {
+        console.error('No se pudo registrar el Service Worker:', err);
+      });
+    });
+  }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#2C2C2E;
+    --surface:#3A3A3D;
+    --ink:#FFFFFF;
+    --ink-soft:#AEAEB2;
+    --accent:#5A5A5E;
+    --accent-dark:#48484A;
+    --accent-soft:#454548;
+    --mustard:#6E6E72;
+    --red:#E1594F;
+    --line:#4A4A4D;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom));
+  }
+  .app{
+    max-width:480px;
+    margin:0 auto;
+    padding:16px 16px 0;
+  }
+  header.top{
+    padding:calc(14px + env(safe-area-inset-top)) 4px 6px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  header.top h1{
+    font-family:'Inter',sans-serif;
+    font-weight:800;
+    font-size:22px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header.top .biz-name{
+    font-size:12px;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  nav.tabs{
+    display:flex;
+    background:var(--surface);
+    border-radius:999px;
+    padding:4px;
+    margin:8px 0 18px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  nav.tabs button{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:11px 0;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    color:var(--ink-soft);
+    border-radius:999px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  nav.tabs button.active{
+    background:var(--accent);
+    color:#fff;
+  }
+  .panel{display:none;}
+  .panel.active{display:block; animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)}}
+
+  .section-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:700;
+    color:var(--ink-soft);
+    margin:0 2px 10px;
+  }
+
+  /* ---- Quick grid ---- */
+  .quick-grid{
+    margin-bottom:20px;
+  }
+  .quick-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .quick-row:last-child{margin-bottom:0;}
+  .quick-btn{
+    flex:1;
+    background:var(--surface);
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:12px 6px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .12s ease, transform .08s ease, background .12s ease;
+  }
+  .quick-btn:active{transform:scale(0.96);}
+  .quick-btn.selected{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .quick-btn .q-name{
+    font-weight:700;
+    font-size:13.5px;
+    display:block;
+  }
+  .quick-btn .q-price{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    display:block;
+    margin-top:2px;
+  }
+  .quick-btn .q-stock{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    color:var(--ink-soft);
+    display:block;
+    margin-top:1px;
+  }
+  .quick-btn .q-stock.low{
+    color:var(--red);
+    font-weight:700;
+  }
+  .quick-empty{
+    grid-column:1/-1;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:18px 10px;
+    background:var(--surface);
+    border-radius:12px;
+    border:1.5px dashed var(--line);
+  }
+
+  /* ---- Selector card ---- */
+  .selector-card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:22px 18px;
+    margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .selector-card .sel-name{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:19px;
+  }
+  .selector-card .sel-empty{
+    color:var(--ink-soft);
+    font-size:14px;
+    font-family:'Inter',sans-serif;
+    font-weight:500;
+  }
+  .row-between{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:12px;
+  }
+  .producto-select{
+    display:block;
+    width:fit-content;
+    max-width:100%;
+    min-width:150px;
+    margin:0 auto;
+    border:1.5px solid var(--line);
+    background:var(--bg);
+    border-radius:999px;
+    padding:12px 38px 12px 20px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    text-align:center;
+    text-align-last:center;
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9A9E' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    background-size:15px;
+  }
+  .producto-select:focus{outline:none; border-color:var(--accent);}
+  /* Fuente de las opciones del desplegable = misma que "Productos rápidos", para mejor lectura */
+  .producto-select option{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+  .stepper-center{
+    display:flex;
+    justify-content:center;
+    margin-top:22px;
+  }
+  .stepper{
+    display:flex;
+    align-items:center;
+    background:var(--bg);
+    border-radius:999px;
+    padding:4px;
+  }
+  .stepper button{
+    width:44px; height:44px;
+    border-radius:999px;
+    border:none;
+    background:var(--surface);
+    font-size:22px;
+    font-weight:700;
+    color:var(--accent);
+    cursor:pointer;
+    box-shadow:0 1px 1px rgba(0,0,0,0.06);
+  }
+  .stepper button:active{transform:scale(0.92);}
+  .stepper input{
+    width:96px;
+    text-align:center;
+    border:none;
+    background:transparent;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:20px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  .price-total{
+    text-align:center;
+    margin-top:14px;
+  }
+  .price-total .u{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .price-total .t{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:19px;
+    color:var(--accent-dark);
+    margin-top:2px;
+  }
+  .price-total .stock-disp{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  .price-total .stock-disp.low{
+    color:var(--red);
+    font-weight:700;
+  }
+  .add-btn{
+    width:100%;
+    margin-top:18px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    padding:13px;
+    border-radius:12px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    transition:background .12s ease, opacity .12s ease;
+  }
+  .add-btn:active{background:var(--accent-dark);}
+  .add-btn:disabled{opacity:.4; cursor:not-allowed;}
+
+  /* ---- Ticket ---- */
+  #ticket-wrap{background:transparent;}
+  .ticket{
+    background:var(--surface);
+    border-radius:var(--radius) var(--radius) 0 0;
+    padding:18px 18px 14px;
+    position:relative;
+  }
+  .ticket .t-head{
+    text-align:center;
+    margin-bottom:12px;
+  }
+  .ticket .t-biz{
+    font-family:'Inter',sans-serif;
+    font-weight:800;
+    font-size:17px;
+  }
+  .ticket .t-date{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .ticket .t-cliente{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:12.5px;
+    color:var(--ink);
+    margin-top:4px;
+  }
+  .ticket-line{
+    border:none;
+    border-top:1.5px dashed var(--line);
+    margin:10px 0;
+  }
+  .t-item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:7px 0;
+    gap:8px;
+  }
+  .t-item .i-left{flex:1; min-width:0;}
+  .t-item .i-name{font-weight:600; font-size:14px;}
+  .t-item .i-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+  .t-item .i-total{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:14.5px;
+    white-space:nowrap;
+  }
+  .t-item .i-del{
+    border:none;
+    background:none;
+    color:var(--red);
+    font-size:16px;
+    padding:2px 4px;
+    cursor:pointer;
+    line-height:1;
+  }
+  .t-empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    padding:22px 8px;
+  }
+  .t-total-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-top:6px;
+    padding-top:10px;
+    border-top:2px solid var(--ink);
+  }
+  .t-total-row .label{
+    font-weight:700;
+    font-size:14px;
+  }
+  .t-total-row .value{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:21px;
+    color:var(--accent-dark);
+  }
+  .zigzag{
+    height:12px;
+    background:
+      linear-gradient(135deg, var(--surface) 50%, transparent 50%) 0 0,
+      linear-gradient(45deg, var(--surface) 50%, transparent 50%) 0 0;
+    background-size:14px 14px;
+    background-repeat:repeat-x;
+    background-color:var(--bg);
+  }
+
+  .ticket-actions{
+    display:flex;
+    gap:8px;
+    margin-top:14px;
+  }
+  .ticket-actions button{
+    flex:1;
+    padding:12px 6px;
+    border-radius:12px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    border:1.5px solid transparent;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+  }
+  .btn-copy{
+    background:var(--mustard);
+    color:#3A2A05;
+  }
+  .btn-copy:active{opacity:.85;}
+  .btn-registrar{
+    background:var(--accent);
+    color:#fff;
+  }
+  .btn-registrar:active{opacity:.85;}
+  .btn-new{
+    background:var(--surface);
+    color:var(--red);
+    border-color:var(--red);
+  }
+  .btn-new:active{background:#FBEAE8;}
+
+  /* ---- Productos tab (Precios + Stock unificados) ---- */
+  .productos-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 12px;
+    margin:0 0 8px;
+  }
+  .productos-header span{
+    font-weight:700;
+    font-size:12.5px;
+    color:var(--ink);
+  }
+  .productos-header .ph-producto{flex:1;}
+  .productos-header .ph-stock{width:78px; text-align:center;}
+  .productos-header .ph-precio{width:88px; text-align:center;}
+  .producto-row{
+    background:var(--surface);
+    border-radius:12px;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .producto-row .p-name{
+    flex:1;
+    min-width:0;
+    font-weight:600;
+    font-size:14.5px;
+  }
+  .producto-row .price-field{
+    display:flex;
+    align-items:center;
+    background:var(--bg);
+    border-radius:8px;
+    padding:0 6px;
+    flex-shrink:0;
+  }
+  .producto-row .price-field span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .producto-row .price-field .price-input{
+    border:none;
+    background:transparent;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    padding:8px 4px;
+    -webkit-appearance:none;
+    appearance:none;
+    -webkit-tap-highlight-color:transparent;
+    outline:none;
+    box-shadow:none;
+  }
+  .producto-row .stock-field .price-input{width:74px; text-align:center;}
+  .producto-row .precio-field .price-input{width:64px; text-align:center;}
+  .producto-row input:focus{outline:none; box-shadow:none;}
+
+  .biz-input-wrap{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:18px;
+  }
+  .biz-input-wrap label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+  .biz-input-wrap input{
+    width:100%;
+    border:none;
+    border-bottom:1.5px solid var(--line);
+    padding:8px 2px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    background:transparent;
+    margin-top:4px;
+  }
+  .biz-input-wrap input:focus{outline:none; border-color:var(--accent);}
+
+  .price-row{
+    background:var(--surface);
+    border-radius:12px;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .price-row .price-field{
+    display:flex;
+    align-items:center;
+    background:var(--bg);
+    border-radius:8px;
+    padding:0 6px;
+  }
+  .price-row .price-field span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .price-row .price-field .price-input{
+    width:78px;
+    border:none;
+    background:transparent;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    padding:8px 4px;
+  }
+  .price-row input:focus{outline:none;}
+  .price-row .del-btn{
+    border:none;
+    background:none;
+    color:var(--red);
+    font-size:17px;
+    padding:4px 6px;
+    cursor:pointer;
+  }
+  .add-product-btn{
+    width:100%;
+    background:var(--accent-soft);
+    color:var(--accent-dark);
+    border:1.5px dashed var(--accent);
+    padding:12px;
+    border-radius:12px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    margin-top:6px;
+    margin-bottom:30px;
+  }
+  /* ---- Registros tab ---- */
+  .registro-card{
+    background:var(--surface);
+    border-radius:12px;
+    margin-bottom:10px;
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .registro-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 14px;
+    cursor:pointer;
+  }
+  .registro-head .r-date{
+    font-weight:700;
+    font-size:13.5px;
+  }
+  .registro-head .r-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .registro-head .r-total{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:15px;
+    color:var(--accent-dark);
+  }
+  .registro-head .r-right{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .registro-head .r-arrow{
+    font-size:12px;
+    color:var(--ink-soft);
+    transition:transform .15s ease;
+  }
+  .registro-card.open .r-arrow{transform:rotate(180deg);}
+  .registro-items{
+    display:none;
+    padding:0 14px 12px;
+    border-top:1.5px dashed var(--line);
+  }
+  .registro-card.open .registro-items{display:block;}
+  .registro-items .ri-item{
+    display:flex;
+    justify-content:space-between;
+    padding:6px 0;
+    font-size:13px;
+  }
+  .registro-items .ri-item .ri-name{font-weight:600;}
+  .registro-items .ri-item .ri-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+  }
+  .registro-items .ri-del-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:6px;
+  }
+  .registro-items .r-del{
+    border:none;
+    background:none;
+    color:var(--red);
+    font-weight:700;
+    font-size:12.5px;
+    padding:6px 4px;
+    cursor:pointer;
+  }
+  .registro-items .r-share{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    border:none;
+    background:none;
+    color:var(--accent);
+    font-weight:700;
+    font-size:12.5px;
+    padding:6px 4px;
+    cursor:pointer;
+  }
+  .registros-empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:22px 10px;
+    background:var(--surface);
+    border-radius:12px;
+    border:1.5px dashed var(--line);
+    margin-bottom:14px;
+  }
+
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:calc(20px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(120%);
+    background:var(--ink);
+    color:#fff;
+    padding:11px 18px;
+    border-radius:999px;
+    font-size:13.5px;
+    font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,0.2);
+    transition:transform .25s ease;
+    z-index:50;
+    white-space:nowrap;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+
+  .img-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(20,26,20,0.92);
+    z-index:100;
+    padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    overflow-y:auto;
+  }
+  .img-modal.show{display:flex; flex-direction:column; align-items:center;}
+  .img-modal-topbar{
+    width:100%;
+    max-width:440px;
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:10px;
+  }
+  .img-modal-topbar button{
+    background:rgba(255,255,255,0.12);
+    border:none;
+    color:#fff;
+    width:36px; height:36px;
+    border-radius:999px;
+    font-size:17px;
+    cursor:pointer;
+  }
+  .img-modal img{
+    max-width:100%;
+    width:100%;
+    max-width:440px;
+    border-radius:14px;
+    box-shadow:0 6px 24px rgba(0,0,0,0.35);
+  }
+  .img-modal .hint{
+    color:#fff;
+    text-align:center;
+    font-size:13.5px;
+    font-weight:600;
+    margin:16px 0 4px;
+    max-width:320px;
+  }
+  .img-modal-actions{
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+    width:100%;
+    max-width:440px;
+  }
+  .img-modal-actions a, .img-modal-actions button{
+    flex:1;
+    text-align:center;
+    text-decoration:none;
+    padding:12px 8px;
+    border-radius:12px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    border:none;
+  }
+  .img-modal-actions .dl{
+    background:var(--mustard);
+    color:#3A2A05;
+  }
+  .img-modal-actions .sh{
+    background:var(--accent);
+    color:#fff;
+  }
+
+  .confirm-modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(20,26,20,0.55);
+    z-index:110;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .confirm-modal.show{display:flex;}
+  .confirm-card{
+    background:var(--surface);
+    border-radius:18px;
+    padding:22px 20px 18px;
+    max-width:320px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 12px 30px rgba(0,0,0,0.25);
+  }
+  .confirm-card .c-title{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:17px;
+    margin:0 0 8px;
+  }
+  .confirm-card .c-msg{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+    line-height:1.4;
+  }
+  .confirm-actions{
+    display:flex;
+    gap:10px;
+  }
+  .confirm-actions button{
+    flex:1;
+    border:none;
+    padding:12px 8px;
+    border-radius:12px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+  }
+  .confirm-actions .c-no{
+    background:var(--bg);
+    color:var(--ink);
+  }
+  .confirm-actions .c-yes{
+    background:var(--red);
+    color:#fff;
+  }
+
+  /* ---- Saldo card ---- */
+  .saldo-card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:14px 16px 16px;
+    margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .saldo-card .toggle-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:11px 12px;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .saldo-card .toggle-btn:active{transform:scale(0.99);}
+  .saldo-card .toggle-btn.active{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .saldo-card .toggle-btn .tb-check{
+    width:18px; height:18px;
+    border-radius:5px;
+    border:1.5px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    color:transparent;
+    background:var(--bg);
+    flex-shrink:0;
+  }
+  .saldo-card .toggle-btn.active .tb-check{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .saldo-card .toggle-btn .tb-label{
+    font-weight:600;
+    font-size:14px;
+  }
+  .saldo-card .saldo-fields-row{
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+  }
+  .saldo-card .saldo-field{flex:1; min-width:0;}
+  .saldo-card .saldo-field label{
+    font-size:14px;
+    font-weight:700;
+    color:var(--ink);
+    display:block;
+    margin-bottom:6px;
+  }
+  .saldo-card .price-field{
+    display:flex;
+    align-items:center;
+    background:var(--bg);
+    border-radius:10px;
+    padding:0 10px;
+    height:50px;
+  }
+  .saldo-card .price-field span{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    color:var(--ink-soft);
+    flex-shrink:0;
+  }
+  .saldo-card .price-field input{
+    width:100%;
+    min-width:0;
+    border:none;
+    background:transparent;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:17px;
+    color:var(--ink);
+    padding:8px 6px;
+    text-align:left;
+    -moz-appearance:textfield;
+  }
+  .saldo-card .price-field input::-webkit-outer-spin-button,
+  .saldo-card .price-field input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .saldo-card .price-field input:focus{outline:none;}
+
+  .cliente-card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:14px 16px 16px;
+    margin-bottom:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .config-card{
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .config-card .toggle-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:11px 12px;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .config-card .toggle-btn:active{transform:scale(0.99);}
+  .config-card .toggle-btn.active{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .config-card .toggle-btn .tb-check{
+    width:18px; height:18px;
+    border-radius:5px;
+    border:1.5px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    color:transparent;
+    background:var(--bg);
+    flex-shrink:0;
+  }
+  .config-card .toggle-btn.active .tb-check{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .config-card .toggle-btn .tb-label{
+    font-weight:600;
+    font-size:14px;
+  }
+  .cliente-card .toggle-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1.5px solid var(--line);
+    border-radius:12px;
+    padding:11px 12px;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease;
+  }
+  .cliente-card .toggle-btn:active{transform:scale(0.99);}
+  .cliente-card .toggle-btn.active{
+    border-color:var(--accent);
+    background:var(--accent-soft);
+  }
+  .cliente-card .toggle-btn .tb-check{
+    width:18px; height:18px;
+    border-radius:5px;
+    border:1.5px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    color:transparent;
+    background:var(--bg);
+    flex-shrink:0;
+  }
+  .cliente-card .toggle-btn.active .tb-check{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .cliente-card .toggle-btn .tb-label{
+    font-weight:600;
+    font-size:14px;
+  }
+  .cliente-card .cliente-detalle{margin-top:14px;}
+  .cliente-card .cliente-field{
+    display:flex;
+    align-items:center;
+    background:var(--bg);
+    border-radius:10px;
+    padding:0 12px;
+    height:50px;
+  }
+  .cliente-card .cliente-field input{
+    width:100%;
+    min-width:0;
+    border:none;
+    background:transparent;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--ink);
+    padding:8px 0;
+  }
+  .cliente-card .cliente-field input:focus{outline:none;}
+
+  /* ---- Saldo dentro del ticket ---- */
+  .t-saldo-anterior{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:var(--accent-soft);
+    border-radius:8px;
+    padding:8px 10px;
+    margin-bottom:10px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--accent-dark);
+  }
+  .t-saldo-anterior .value{font-family:'IBM Plex Mono',monospace;}
+  .t-extra-row{
+    display:flex;
+    justify-content:space-between;
+    padding:4px 0;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .t-extra-row .value{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    color:var(--ink);
+  }
+
+  /* ---- Turnos ---- */
+  .turnos-notice{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0 2px 14px;
+    background:var(--accent-soft);
+    padding:10px 12px;
+    border-radius:10px;
+  }
+  .date-card{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .date-card label{
+    font-weight:700;
+    font-size:13.5px;
+    flex-shrink:0;
+  }
+  .date-card input[type="date"]{
+    flex:1;
+    min-width:0;
+    border:1.5px solid var(--line);
+    background:var(--bg);
+    border-radius:10px;
+    padding:9px 10px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    color-scheme:dark;
+  }
+  .date-card input[type="date"]::-webkit-calendar-picker-indicator{
+    cursor:pointer;
+  }
+  .horario-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    background:none;
+    border:none;
+    color:var(--ink-soft);
+    font-weight:600;
+    font-size:12.5px;
+    padding:8px 4px 4px;
+    cursor:pointer;
+    width:100%;
+  }
+  .horario-card{
+    display:none;
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .horario-card.show{display:block;}
+  .horario-card .h-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:10px;
+  }
+  .horario-card .h-field{flex:1; min-width:0;}
+  .horario-card .h-field label{
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink-soft);
+    display:block;
+    margin-bottom:5px;
+  }
+  .horario-card .h-field input{
+    width:100%;
+    border:1.5px solid var(--line);
+    background:var(--bg);
+    border-radius:10px;
+    padding:9px 10px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    color-scheme:dark;
+  }
+  .horario-card .h-field input::-webkit-calendar-picker-indicator{
+    cursor:pointer;
+  }
+  .horario-card .h-save{
+    width:100%;
+    border:none;
+    background:var(--accent);
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+    padding:11px 0;
+    border-radius:12px;
+    cursor:pointer;
+    margin-top:2px;
+  }
+  .slot-card{
+    background:var(--surface);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .slot-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .slot-hora{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+  }
+  .slot-asignar{
+    border:1.5px solid var(--ink);
+    background:none;
+    color:var(--ink);
+    font-weight:700;
+    font-size:13px;
+    padding:8px 14px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .slot-form{
+    display:none;
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px dashed var(--line);
+  }
+  .slot-form.show{display:block;}
+  .slot-form input{
+    width:100%;
+    border:1.5px solid var(--line);
+    background:var(--bg);
+    border-radius:10px;
+    padding:10px 12px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+  .slot-form-actions{
+    display:flex;
+    gap:8px;
+  }
+  .slot-form-actions button{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding:10px 0;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .slot-form-actions .sf-ok{background:var(--accent); color:#fff;}
+  .slot-form-actions .sf-cancel{background:var(--bg); color:var(--ink); border:1.5px solid var(--line) !important;}
+  .turno-card{
+    background:var(--surface);
+    border-radius:14px;
+    padding:14px 16px;
+    margin-bottom:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.35);
+  }
+  .turno-top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .turno-fechahora{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .turno-cliente{
+    font-weight:700;
+    font-size:15.5px;
+    margin-bottom:2px;
+  }
+  .turno-servicio{
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .turno-actions{
+    display:flex;
+    gap:8px;
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px dashed var(--line);
+  }
+  .turno-actions button{
+    flex:1;
+    border:none;
+    border-radius:10px;
+    padding:9px 0;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .turno-actions .ta-completar{background:var(--accent); color:#fff;}
+  .turno-actions .ta-cancelar{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
+  .turno-actions .ta-eliminar{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
+  .turnos-empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+    padding:22px 10px;
+    background:var(--surface);
+    border-radius:12px;
+    border:1.5px dashed var(--line);
+    margin-bottom:14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <h1>Turnos</h1>
+    <span class="biz-name" id="bizLabel"></span>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="disponibles">Disponibles</button>
+    <button class="tab" data-tab="asignados">Asignados</button>
+    <button class="tab" data-tab="historial">Historial</button>
+  </nav>
+
+  <!-- TURNOS DISPONIBLES -->
+  <section class="panel active" id="panel-disponibles">
+    <div class="date-card">
+      <label for="inpFecha">Día</label>
+      <input type="date" id="inpFecha">
+    </div>
+
+    <button class="horario-toggle" id="toggleHorario">⚙️ Configurar horario de atención</button>
+    <div class="horario-card" id="horarioCard">
+      <div class="h-row">
+        <div class="h-field">
+          <label>Desde</label>
+          <input type="time" id="inpHorarioInicio">
+        </div>
+        <div class="h-field">
+          <label>Hasta</label>
+          <input type="time" id="inpHorarioFin">
+        </div>
+      </div>
+      <div class="h-row" style="margin-bottom:0;">
+        <div class="h-field">
+          <label>Cada cuánto (minutos)</label>
+          <input type="number" id="inpHorarioIntervalo" min="5" step="5" inputmode="numeric">
+        </div>
+      </div>
+      <button class="h-save" id="btnGuardarHorario">Guardar horario</button>
+    </div>
+
+    <p class="section-label">Horarios libres</p>
+    <div id="disponiblesList"></div>
+    <button class="add-product-btn" id="btnCompartirDisponibles" style="margin-top:4px;">📤 Compartir horarios disponibles</button>
+  </section>
+
+  <!-- TURNOS ASIGNADOS -->
+  <section class="panel" id="panel-asignados">
+    <p class="section-label">Turnos asignados</p>
+    <div id="asignadosList"></div>
+  </section>
+
+  <!-- HISTORIAL -->
+  <section class="panel" id="panel-historial">
+    <p class="section-label">Historial</p>
+    <div id="historialList"></div>
+    <button class="add-product-btn" id="btnVaciarHistorial" style="border-color:var(--red); color:var(--red);">🗑 Borrar historial</button>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="confirm-modal" id="confirmModal">
+  <div class="confirm-card">
+    <p class="c-title" id="confirmTitle">¿Estás seguro?</p>
+    <p class="c-msg" id="confirmMsg"></p>
+    <div class="confirm-actions">
+      <button class="c-no" id="confirmNo">Cancelar</button>
+      <button class="c-yes" id="confirmYes">Borrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Auto-actualización: si en el servidor hay una versión más nueva que la que
+  // se cargó (aunque sea desde una copia vieja guardada en caché), la detecta
+  // y recarga la página automáticamente para traer la última versión.
+  (function(){
+    var APP_VERSION = '2026-08-15.1';
+    function checkForUpdate(){
+      try{
+        fetch(location.pathname + '?_check=' + Date.now(), {cache:'no-store'})
+          .then(function(r){ return r.text(); })
+          .then(function(html){
+            var m = html.match(/APP_VERSION\s*=\s*'([^']+)'/);
+            if(m && m[1] && m[1] !== APP_VERSION){
+              location.href = location.pathname + '?v=' + Date.now();
+            }
+          })
+          .catch(function(){ /* sin conexión: seguimos con la copia actual */ });
+      }catch(e){}
+    }
+    checkForUpdate();
+  })();
+</script>
+
+<script>
+(function(){
+  const LS_TURNOS = 'tp_turnos';
+  const LS_HORARIO = 'tp_horario';
+  const BIZ_NAME = '';
+
+  let turnos = JSON.parse(localStorage.getItem(LS_TURNOS) || 'null') || [];
+  let horario = JSON.parse(localStorage.getItem(LS_HORARIO) || 'null') || {inicio:'09:00', fin:'18:00', intervalo:30};
+  let ultimaFecha = '';
+  let ultimosLibres = [];
+
+  function saveTurnos(){ localStorage.setItem(LS_TURNOS, JSON.stringify(turnos)); }
+  function saveHorario(){ localStorage.setItem(LS_HORARIO, JSON.stringify(horario)); }
+
+  document.getElementById('bizLabel').textContent = BIZ_NAME;
+
+  // ---------- Utils ----------
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function todayStr(){
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function fechaLabel(fechaStr){
+    // fechaStr = 'YYYY-MM-DD' -> 'dd/mm/yyyy'
+    const [y,m,d] = fechaStr.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  function diaSemanaLabel(fechaStr){
+    const [y,m,d] = fechaStr.split('-').map(Number);
+    const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    return dias[new Date(y, m-1, d).getDay()];
+  }
+  function genId(){ return 't' + Date.now() + Math.random().toString(36).slice(2,7); }
+
+  let toastTimer;
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> t.classList.remove('show'), 1800);
+  }
+
+  let confirmYesHandler = null;
+  function showConfirm(msg, onYes, title){
+    document.getElementById('confirmTitle').textContent = title || '¿Estás seguro?';
+    document.getElementById('confirmMsg').textContent = msg;
+    confirmYesHandler = onYes;
+    document.getElementById('confirmModal').classList.add('show');
+  }
+  document.getElementById('confirmNo').addEventListener('click', ()=>{
+    document.getElementById('confirmModal').classList.remove('show');
+    confirmYesHandler = null;
+  });
+  document.getElementById('confirmYes').addEventListener('click', ()=>{
+    document.getElementById('confirmModal').classList.remove('show');
+    if(confirmYesHandler) confirmYesHandler();
+    confirmYesHandler = null;
+  });
+
+  // ---------- Generar horarios del día según config ----------
+  function generarSlots(){
+    const [hIni, mIni] = horario.inicio.split(':').map(Number);
+    const [hFin, mFin] = horario.fin.split(':').map(Number);
+    const intervalo = Number(horario.intervalo) || 30;
+    let mins = hIni*60 + mIni;
+    const finMins = hFin*60 + mFin;
+    const out = [];
+    while(mins < finMins){
+      const h = String(Math.floor(mins/60)).padStart(2,'0');
+      const m = String(mins%60).padStart(2,'0');
+      out.push(`${h}:${m}`);
+      mins += intervalo;
+    }
+    return out;
+  }
+
+  // ---------- Tab switching ----------
+  document.querySelectorAll('.tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+      if(btn.dataset.tab === 'disponibles') renderDisponibles();
+      if(btn.dataset.tab === 'asignados') renderAsignados();
+      if(btn.dataset.tab === 'historial') renderHistorial();
+    });
+  });
+
+  // ---------- Panel: Turnos disponibles ----------
+  const inpFecha = document.getElementById('inpFecha');
+  inpFecha.value = todayStr();
+  inpFecha.addEventListener('change', renderDisponibles);
+
+  document.getElementById('toggleHorario').addEventListener('click', ()=>{
+    document.getElementById('horarioCard').classList.toggle('show');
+  });
+  document.getElementById('inpHorarioInicio').value = horario.inicio;
+  document.getElementById('inpHorarioFin').value = horario.fin;
+  document.getElementById('inpHorarioIntervalo').value = horario.intervalo;
+  document.getElementById('btnGuardarHorario').addEventListener('click', ()=>{
+    const inicio = document.getElementById('inpHorarioInicio').value || '09:00';
+    const fin = document.getElementById('inpHorarioFin').value || '18:00';
+    const intervalo = Number(document.getElementById('inpHorarioIntervalo').value) || 30;
+    horario = {inicio, fin, intervalo};
+    saveHorario();
+    showToast('Horario guardado');
+    renderDisponibles();
+  });
+
+  function renderDisponibles(){
+    const list = document.getElementById('disponiblesList');
+    list.innerHTML = '';
+    const fecha = inpFecha.value || todayStr();
+    const slots = generarSlots();
+    const ocupados = new Set(
+      turnos.filter(t=> t.fecha === fecha && t.estado === 'asignado').map(t=>t.hora)
+    );
+    const libres = slots.filter(h=> !ocupados.has(h));
+    ultimaFecha = fecha;
+    ultimosLibres = libres;
+
+    if(libres.length === 0){
+      list.innerHTML = '<div class="turnos-empty">No hay horarios libres para este día.</div>';
+      return;
+    }
+
+    libres.forEach(hora=>{
+      const card = document.createElement('div');
+      card.className = 'slot-card';
+      card.innerHTML = `
+        <div class="slot-top">
+          <span class="slot-hora">${hora}</span>
+          <button class="slot-asignar" data-hora="${hora}">Asignar</button>
+        </div>
+        <div class="slot-form" id="form-${hora.replace(':','')}">
+          <input type="text" class="slot-cliente" placeholder="Nombre del cliente" maxlength="60">
+          <input type="text" class="slot-servicio" placeholder="Servicio (ej: Corte, Color)" maxlength="60">
+          <div class="slot-form-actions">
+            <button class="sf-cancel">Cancelar</button>
+            <button class="sf-ok" data-hora="${hora}">Confirmar</button>
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.slot-asignar').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const formId = 'form-' + btn.dataset.hora.replace(':','');
+        document.querySelectorAll('.slot-form.show').forEach(f=>{ if(f.id !== formId) f.classList.remove('show'); });
+        document.getElementById(formId).classList.toggle('show');
+      });
+    });
+    list.querySelectorAll('.sf-cancel').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        btn.closest('.slot-form').classList.remove('show');
+      });
+    });
+    list.querySelectorAll('.sf-ok').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const form = btn.closest('.slot-form');
+        const cliente = form.querySelector('.slot-cliente').value.trim();
+        const servicio = form.querySelector('.slot-servicio').value.trim();
+        if(!cliente){ showToast('Falta el nombre del cliente'); return; }
+        turnos.push({
+          id: genId(),
+          fecha,
+          hora: btn.dataset.hora,
+          cliente,
+          servicio,
+          estado: 'asignado'
+        });
+        saveTurnos();
+        showToast('Turno asignado');
+        renderDisponibles();
+      });
+    });
+  }
+
+  // ---------- Panel: Turnos asignados ----------
+  function renderAsignados(){
+    const list = document.getElementById('asignadosList');
+    list.innerHTML = '';
+    const activos = turnos
+      .filter(t=> t.estado === 'asignado')
+      .sort((a,b)=> (a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+
+    if(activos.length === 0){
+      list.innerHTML = '<div class="turnos-empty">Todavía no hay turnos asignados.</div>';
+      return;
+    }
+
+    activos.forEach(t=>{
+      const card = document.createElement('div');
+      card.className = 'turno-card';
+      card.innerHTML = `
+        <div class="turno-top">
+          <span class="turno-fechahora">${fechaLabel(t.fecha)} · ${t.hora}</span>
+        </div>
+        <div class="turno-cliente">${escapeHtml(t.cliente)}</div>
+        <div class="turno-servicio">${t.servicio ? escapeHtml(t.servicio) : 'Sin servicio especificado'}</div>
+        <div class="turno-actions">
+          <button class="ta-completar" data-id="${t.id}">✓ Completar</button>
+          <button class="ta-cancelar" data-id="${t.id}">Cancelar turno</button>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.ta-completar').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const t = turnos.find(x=>x.id === btn.dataset.id);
+        if(!t) return;
+        t.estado = 'completado';
+        saveTurnos();
+        showToast('Turno pasado al historial');
+        renderAsignados();
+      });
+    });
+    list.querySelectorAll('.ta-cancelar').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        showConfirm('¿Cancelar este turno? El horario vuelve a quedar libre.', ()=>{
+          turnos = turnos.filter(x=>x.id !== btn.dataset.id);
+          saveTurnos();
+          renderAsignados();
+        });
+      });
+    });
+  }
+
+  // ---------- Panel: Historial ----------
+  function renderHistorial(){
+    const list = document.getElementById('historialList');
+    list.innerHTML = '';
+    const completados = turnos
+      .filter(t=> t.estado === 'completado')
+      .sort((a,b)=> (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+
+    if(completados.length === 0){
+      list.innerHTML = '<div class="turnos-empty">Todavía no hay turnos en el historial.</div>';
+      return;
+    }
+
+    completados.forEach(t=>{
+      const card = document.createElement('div');
+      card.className = 'turno-card';
+      card.innerHTML = `
+        <div class="turno-top">
+          <span class="turno-fechahora">${fechaLabel(t.fecha)} · ${t.hora}</span>
+        </div>
+        <div class="turno-cliente">${escapeHtml(t.cliente)}</div>
+        <div class="turno-servicio">${t.servicio ? escapeHtml(t.servicio) : 'Sin servicio especificado'}</div>
+        <div class="turno-actions">
+          <button class="ta-eliminar" data-id="${t.id}">🗑 Eliminar</button>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.ta-eliminar').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        showConfirm('¿Eliminar este turno del historial?', ()=>{
+          turnos = turnos.filter(x=>x.id !== btn.dataset.id);
+          saveTurnos();
+          renderHistorial();
+        });
+      });
+    });
+  }
+
+  function textoDisponibles(){
+    const fecha = ultimaFecha || (inpFecha.value || todayStr());
+    const libres = ultimosLibres;
+    let texto = `Turnos disponibles para el ${diaSemanaLabel(fecha)} ${fechaLabel(fecha)}:\n\n`;
+    if(libres.length === 0){
+      texto += 'No hay horarios libres para ese día.';
+    } else {
+      texto += libres.map(h=>`🕐 ${h}`).join('\n');
+    }
+    return texto;
+  }
+
+  document.getElementById('btnCompartirDisponibles').addEventListener('click', async ()=>{
+    const texto = textoDisponibles();
+    // 1) Si el navegador soporta compartir nativo (celular), se abre el selector
+    //    de apps (WhatsApp, Mensajes, etc.) con el texto ya armado.
+    if(navigator.share){
+      try{
+        await navigator.share({ text: texto });
+        return;
+      }catch(err){
+        // Si el usuario cancela el selector, no hacemos nada más.
+        if(err && err.name === 'AbortError') return;
+      }
+    }
+    // 2) Si no hay share nativo (ej: desktop), se abre WhatsApp directamente
+    //    con el texto cargado, para elegir el contacto ahí.
+    const url = 'https://wa.me/?text=' + encodeURIComponent(texto);
+    const win = window.open(url, '_blank');
+    if(!win){
+      // 3) Último recurso: copiar al portapapeles.
+      try{
+        await navigator.clipboard.writeText(texto);
+        showToast('Copiado al portapapeles');
+      }catch(err){
+        showToast('No se pudo compartir');
+      }
+    }
+  });
+
+  document.getElementById('btnVaciarHistorial').addEventListener('click', ()=>{
+    const hayHistorial = turnos.some(t=>t.estado === 'completado');
+    if(!hayHistorial) return;
+    showConfirm('¿Borrar todo el historial de turnos? Esto no se puede deshacer.', ()=>{
+      turnos = turnos.filter(t=>t.estado !== 'completado');
+      saveTurnos();
+      renderHistorial();
+      showToast('Historial vaciado');
+    });
+  });
+
+  // ---------- Init ----------
+  renderDisponibles();
+  renderAsignados();
+  renderHistorial();
+})();
+</script>
+</body>
+</html>
