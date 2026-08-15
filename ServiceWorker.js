@@ -1,7 +1,7 @@
 // Service Worker - Presupuesto Rápido
 // Estrategia: cache-first para assets del "app shell", con actualización en segundo plano.
 
-const CACHE_NAME = 'turnos-peluqueria-v2';
+const CACHE_NAME = 'turnos-peluqueria-v4';
 
 // Recursos propios de la app (mismo origen)
 const CORE_ASSETS = [

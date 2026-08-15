@@ -1106,13 +1106,14 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:6px;
+    gap:8px;
     background:none;
     border:none;
     color:var(--ink-soft);
-    font-weight:600;
-    font-size:12.5px;
-    padding:8px 4px 4px;
+    font-weight:700;
+    font-size:15.5px;
+    padding:10px 4px;
+    margin-bottom:16px;
     cursor:pointer;
     width:100%;
   }
@@ -1272,6 +1273,7 @@
     cursor:pointer;
   }
   .turno-actions .ta-completar{background:var(--accent); color:#fff;}
+  .turno-actions .ta-compartir{background:#25D366; color:#fff; flex:0 0 44px; display:flex; align-items:center; justify-content:center;}
   .turno-actions .ta-cancelar{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
   .turno-actions .ta-eliminar{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
   .turnos-empty{
@@ -1369,7 +1371,7 @@
   // se cargó (aunque sea desde una copia vieja guardada en caché), la detecta
   // y recarga la página automáticamente para traer la última versión.
   (function(){
-    var APP_VERSION = '2026-08-15.1';
+    var APP_VERSION = '2026-08-15.3';
     function checkForUpdate(){
       try{
         fetch(location.pathname + '?_check=' + Date.now(), {cache:'no-store'})
@@ -1558,17 +1560,21 @@
         const cliente = form.querySelector('.slot-cliente').value.trim();
         const servicio = form.querySelector('.slot-servicio').value.trim();
         if(!cliente){ showToast('Falta el nombre del cliente'); return; }
-        turnos.push({
+        const nuevoTurno = {
           id: genId(),
           fecha,
           hora: btn.dataset.hora,
           cliente,
           servicio,
           estado: 'asignado'
-        });
+        };
+        turnos.push(nuevoTurno);
         saveTurnos();
         showToast('Turno asignado');
         renderDisponibles();
+        // Ofrecemos compartir el turno recién confirmado, con el mismo método
+        // que "Compartir horarios disponibles".
+        compartirTexto(textoTurno(nuevoTurno));
       });
     });
   }
@@ -1597,12 +1603,22 @@
         <div class="turno-servicio">${t.servicio ? escapeHtml(t.servicio) : 'Sin servicio especificado'}</div>
         <div class="turno-actions">
           <button class="ta-completar" data-id="${t.id}">✓ Completar</button>
+          <button class="ta-compartir" data-id="${t.id}" title="Compartir por WhatsApp">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.868-2.03-.967-.273-.099-.472-.148-.67.15-.198.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.99.583 3.845 1.588 5.405L2 22l4.735-1.552A9.947 9.947 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18.222a8.19 8.19 0 0 1-4.19-1.148l-.3-.179-3.12 1.023 1.04-3.03-.196-.312A8.185 8.185 0 0 1 3.778 12c0-4.535 3.687-8.222 8.222-8.222S20.222 7.465 20.222 12 16.535 20.222 12 20.222z"/></svg>
+          </button>
           <button class="ta-cancelar" data-id="${t.id}">Cancelar turno</button>
         </div>
       `;
       list.appendChild(card);
     });
 
+    list.querySelectorAll('.ta-compartir').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const t = turnos.find(x=>x.id === btn.dataset.id);
+        if(!t) return;
+        compartirTexto(textoTurno(t));
+      });
+    });
     list.querySelectorAll('.ta-completar').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const t = turnos.find(x=>x.id === btn.dataset.id);
@@ -1676,8 +1692,19 @@
     return texto;
   }
 
-  document.getElementById('btnCompartirDisponibles').addEventListener('click', async ()=>{
-    const texto = textoDisponibles();
+  function textoTurno(t){
+    let texto = `✅ Turno confirmado\n\n`;
+    texto += `📅 ${diaSemanaLabel(t.fecha)} ${fechaLabel(t.fecha)}\n`;
+    texto += `🕐 ${t.hora}\n`;
+    texto += `👤 ${t.cliente}\n`;
+    if(t.servicio) texto += `💈 ${t.servicio}\n`;
+    if(BIZ_NAME) texto += `\n${BIZ_NAME}`;
+    return texto;
+  }
+
+  // Función compartida: mismo método de "Compartir horarios disponibles",
+  // reutilizado para compartir un turno individual apenas se confirma.
+  async function compartirTexto(texto){
     // 1) Si el navegador soporta compartir nativo (celular), se abre el selector
     //    de apps (WhatsApp, Mensajes, etc.) con el texto ya armado.
     if(navigator.share){
@@ -1702,6 +1729,10 @@
         showToast('No se pudo compartir');
       }
     }
+  }
+
+  document.getElementById('btnCompartirDisponibles').addEventListener('click', ()=>{
+    compartirTexto(textoDisponibles());
   });
 
   document.getElementById('btnVaciarHistorial').addEventListener('click', ()=>{
