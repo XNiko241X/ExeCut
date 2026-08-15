@@ -1342,6 +1342,26 @@
     font-size:13px;
     cursor:pointer;
   }
+  .turno-badge-cancelado{
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--red);
+    background:rgba(225,89,79,0.14);
+    padding:3px 8px;
+    border-radius:999px;
+  }
+  .turno-badge-completado{
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:#fff;
+    background:rgba(255,255,255,0.14);
+    padding:3px 8px;
+    border-radius:999px;
+  }
   .turno-actions .ta-completar{background:var(--accent); color:#fff;}
   .turno-actions .ta-compartir{background:#25D366; color:#fff; flex:0 0 44px; display:flex; align-items:center; justify-content:center;}
   .turno-actions .ta-cancelar{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
@@ -1355,6 +1375,43 @@
     border-radius:12px;
     border:1.5px dashed var(--line);
     margin-bottom:14px;
+  }
+  .turnos-fecha-separador{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:18px 2px 10px;
+  }
+  .turnos-fecha-separador:first-child{
+    margin-top:0;
+  }
+  .turnos-fecha-separador span{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:700;
+    font-size:12px;
+    letter-spacing:.02em;
+    color:var(--ink-soft);
+    white-space:nowrap;
+    text-transform:capitalize;
+  }
+  .turnos-fecha-separador::after{
+    content:'';
+    flex:1;
+    height:1px;
+    background:var(--line);
+  }
+  /* Tipografía más grande en "Turnos asignados": fechas, horas y textos de las tarjetas */
+  #asignadosList .turnos-fecha-separador span{
+    font-size:15px;
+  }
+  #asignadosList .turno-fechahora{
+    font-size:18px;
+  }
+  #asignadosList .turno-cliente{
+    font-size:17px;
+  }
+  #asignadosList .turno-servicio{
+    font-size:14.5px;
   }
 </style>
 </head>
@@ -1773,12 +1830,20 @@
       return;
     }
 
+    let fechaAnterior = null;
     activos.forEach(t=>{
+      if(t.fecha !== fechaAnterior){
+        const sep = document.createElement('div');
+        sep.className = 'turnos-fecha-separador';
+        sep.innerHTML = `<span>${diaSemanaLabel(t.fecha)} ${fechaLabel(t.fecha)}</span>`;
+        list.appendChild(sep);
+        fechaAnterior = t.fecha;
+      }
       const card = document.createElement('div');
       card.className = 'turno-card';
       card.innerHTML = `
         <div class="turno-top">
-          <span class="turno-fechahora">${fechaLabel(t.fecha)} · ${t.hora}</span>
+          <span class="turno-fechahora">${t.hora}</span>
         </div>
         <div class="turno-cliente">${escapeHtml(t.cliente)}</div>
         <div class="turno-servicio">${t.servicio ? escapeHtml(t.servicio) : 'Sin servicio especificado'}</div>
@@ -1812,9 +1877,12 @@
     });
     list.querySelectorAll('.ta-cancelar').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        showConfirm('¿Cancelar este turno? El horario vuelve a quedar libre.', ()=>{
-          turnos = turnos.filter(x=>x.id !== btn.dataset.id);
+        showConfirm('¿Cancelar este turno? El horario vuelve a quedar libre y el turno pasa al historial.', ()=>{
+          const t = turnos.find(x=>x.id === btn.dataset.id);
+          if(!t) return;
+          t.estado = 'cancelado';
           saveTurnos();
+          showToast('Turno cancelado');
           renderAsignados();
         });
       });
@@ -1825,21 +1893,23 @@
   function renderHistorial(){
     const list = document.getElementById('historialList');
     list.innerHTML = '';
-    const completados = turnos
-      .filter(t=> t.estado === 'completado')
+    const pasados = turnos
+      .filter(t=> t.estado === 'completado' || t.estado === 'cancelado')
       .sort((a,b)=> (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
 
-    if(completados.length === 0){
+    if(pasados.length === 0){
       list.innerHTML = '<div class="turnos-empty">Todavía no hay turnos en el historial.</div>';
       return;
     }
 
-    completados.forEach(t=>{
+    pasados.forEach(t=>{
+      const esCancelado = t.estado === 'cancelado';
       const card = document.createElement('div');
       card.className = 'turno-card';
       card.innerHTML = `
         <div class="turno-top">
           <span class="turno-fechahora">${fechaLabel(t.fecha)} · ${t.hora}</span>
+          ${esCancelado ? '<span class="turno-badge-cancelado">Cancelado</span>' : '<span class="turno-badge-completado">Completado</span>'}
         </div>
         <div class="turno-cliente">${escapeHtml(t.cliente)}</div>
         <div class="turno-servicio">${t.servicio ? escapeHtml(t.servicio) : 'Sin servicio especificado'}</div>
@@ -1917,10 +1987,10 @@
   });
 
   document.getElementById('btnVaciarHistorial').addEventListener('click', ()=>{
-    const hayHistorial = turnos.some(t=>t.estado === 'completado');
+    const hayHistorial = turnos.some(t=>t.estado === 'completado' || t.estado === 'cancelado');
     if(!hayHistorial) return;
     showConfirm('¿Borrar todo el historial de turnos? Esto no se puede deshacer.', ()=>{
-      turnos = turnos.filter(t=>t.estado !== 'completado');
+      turnos = turnos.filter(t=>t.estado !== 'completado' && t.estado !== 'cancelado');
       saveTurnos();
       renderHistorial();
       showToast('Historial vaciado');
