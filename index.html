@@ -1154,36 +1154,76 @@
   .horario-card .h-field input::-webkit-calendar-picker-indicator{
     cursor:pointer;
   }
+
+  /* ---- Mini-select propio (evita el picker nativo a pantalla completa) ---- */
   .time-select-group{
     display:flex;
     gap:6px;
   }
-  .time-select-group select{
+  .mini-select-wrap{
+    position:relative;
     flex:1;
     min-width:0;
+  }
+  .mini-select-wrap.ampm-wrap{
+    flex:0 0 58px;
+  }
+  .mini-select-btn{
+    width:100%;
     border:1.5px solid var(--line);
     background:var(--bg);
     border-radius:10px;
-    padding:9px 4px;
+    padding:9px 22px 9px 10px;
     font-family:'Inter',sans-serif;
     font-weight:700;
     font-size:14px;
     color:var(--ink);
     text-align:center;
-    text-align-last:center;
-    appearance:none;
-    -webkit-appearance:none;
+    cursor:pointer;
+    position:relative;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9A9E' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
     background-repeat:no-repeat;
-    background-position:right 4px center;
+    background-position:right 6px center;
     background-size:12px;
-    padding-right:18px;
   }
-  .time-select-group select.ts-ampm{
-    flex:0 0 58px;
-    padding-right:18px;
+  .mini-select-btn.open{border-color:var(--accent);}
+  .interval-select{padding:9px 30px 9px 10px; text-align:left; background-position:right 10px center;}
+  .mini-select-panel{
+    display:none;
+    position:absolute;
+    top:calc(100% + 5px);
+    left:0;
+    right:0;
+    max-height:190px;
+    overflow-y:auto;
+    background:var(--surface);
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    box-shadow:0 6px 16px rgba(0,0,0,0.45);
+    z-index:50;
+    padding:4px;
   }
-  .time-select-group select:focus{outline:none; border-color:var(--accent);}
+  .mini-select-panel.show{display:block;}
+  .mini-select-option{
+    padding:9px 10px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--ink);
+    text-align:center;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .mini-select-option.selected{
+    background:var(--accent);
+    color:#fff;
+    font-weight:700;
+  }
+  .interval-select ~ .mini-select-panel .mini-select-option,
+  .mini-select-panel .mini-select-option.interval-opt{
+    text-align:left;
+  }
+
   .horario-card .h-save{
     width:100%;
     border:none;
@@ -1345,12 +1385,9 @@
         <div class="h-field">
           <label>Desde</label>
           <div class="time-select-group">
-            <select id="inpHorarioInicioH" aria-label="Hora desde"></select>
-            <select id="inpHorarioInicioM" aria-label="Minuto desde"></select>
-            <select id="inpHorarioInicioAP" class="ts-ampm" aria-label="AM/PM desde">
-              <option value="AM">AM</option>
-              <option value="PM">PM</option>
-            </select>
+            <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioInicioH"></button></div>
+            <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioInicioM"></button></div>
+            <div class="mini-select-wrap ampm-wrap"><button type="button" class="mini-select-btn ts-ampm" id="inpHorarioInicioAP"></button></div>
           </div>
         </div>
       </div>
@@ -1358,19 +1395,16 @@
         <div class="h-field">
           <label>Hasta</label>
           <div class="time-select-group">
-            <select id="inpHorarioFinH" aria-label="Hora hasta"></select>
-            <select id="inpHorarioFinM" aria-label="Minuto hasta"></select>
-            <select id="inpHorarioFinAP" class="ts-ampm" aria-label="AM/PM hasta">
-              <option value="AM">AM</option>
-              <option value="PM">PM</option>
-            </select>
+            <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioFinH"></button></div>
+            <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioFinM"></button></div>
+            <div class="mini-select-wrap ampm-wrap"><button type="button" class="mini-select-btn ts-ampm" id="inpHorarioFinAP"></button></div>
           </div>
         </div>
       </div>
       <div class="h-row" style="margin-bottom:0;">
         <div class="h-field">
           <label>Cada cuánto (minutos)</label>
-          <input type="number" id="inpHorarioIntervalo" min="5" step="5" inputmode="numeric">
+          <div class="mini-select-wrap"><button type="button" class="mini-select-btn interval-select" id="inpHorarioIntervalo"></button></div>
         </div>
       </div>
       <button class="h-save" id="btnGuardarHorario">Guardar horario</button>
@@ -1417,7 +1451,7 @@
   // se cargó (aunque sea desde una copia vieja guardada en caché), la detecta
   // y recarga la página automáticamente para traer la última versión.
   (function(){
-    var APP_VERSION = '2026-08-15.4';
+    var APP_VERSION = '2026-08-15.6';
     function checkForUpdate(){
       try{
         fetch(location.pathname + '?_check=' + Date.now(), {cache:'no-store'})
@@ -1539,27 +1573,75 @@
     document.getElementById('horarioCard').classList.toggle('show');
   });
 
-  // ---------- Selects de hora (12h con AM/PM) ----------
-  function poblarSelectsHora(prefix){
-    const selH = document.getElementById(prefix + 'H');
-    const selM = document.getElementById(prefix + 'M');
-    selH.innerHTML = '';
-    for(let h=1; h<=12; h++){
-      const opt = document.createElement('option');
-      opt.value = String(h);
-      opt.textContent = String(h);
-      selH.appendChild(opt);
-    }
-    selM.innerHTML = '';
-    for(let m=0; m<60; m+=5){
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2,'0');
-      opt.textContent = String(m).padStart(2,'0');
-      selM.appendChild(opt);
-    }
+  // ---------- Mini-select propio (botón + panel chico, sin picker nativo) ----------
+  const miniSelects = {}; // id -> { btn, panel, value }
+
+  function crearMiniSelect(id, opciones, valorInicial){
+    const btn = document.getElementById(id);
+    const wrap = btn.closest('.mini-select-wrap');
+    const panel = document.createElement('div');
+    panel.className = 'mini-select-panel';
+    opciones.forEach(op=>{
+      const item = document.createElement('div');
+      item.className = 'mini-select-option';
+      item.textContent = op.label;
+      item.dataset.value = op.value;
+      item.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        seleccionarMiniOpcion(id, op.value);
+        panel.classList.remove('show');
+        btn.classList.remove('open');
+      });
+      panel.appendChild(item);
+    });
+    wrap.appendChild(panel);
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const yaAbierto = panel.classList.contains('show');
+      document.querySelectorAll('.mini-select-panel.show').forEach(p=> p.classList.remove('show'));
+      document.querySelectorAll('.mini-select-btn.open').forEach(b=> b.classList.remove('open'));
+      if(!yaAbierto){
+        panel.classList.add('show');
+        btn.classList.add('open');
+        const sel = panel.querySelector('.mini-select-option.selected');
+        if(sel) sel.scrollIntoView({block:'nearest'});
+      }
+    });
+    miniSelects[id] = { btn, panel, value: null };
+    seleccionarMiniOpcion(id, valorInicial, true);
   }
-  poblarSelectsHora('inpHorarioInicio');
-  poblarSelectsHora('inpHorarioFin');
+
+  function seleccionarMiniOpcion(id, value, silencioso){
+    const ms = miniSelects[id];
+    if(!ms) return;
+    const opt = ms.panel.querySelector(`.mini-select-option[data-value="${value}"]`);
+    if(!opt) return;
+    ms.panel.querySelectorAll('.mini-select-option').forEach(o=> o.classList.remove('selected'));
+    opt.classList.add('selected');
+    ms.btn.textContent = opt.textContent;
+    ms.value = String(value);
+  }
+
+  function valorMiniSelect(id){
+    return miniSelects[id] ? miniSelects[id].value : null;
+  }
+
+  document.addEventListener('click', ()=>{
+    document.querySelectorAll('.mini-select-panel.show').forEach(p=> p.classList.remove('show'));
+    document.querySelectorAll('.mini-select-btn.open').forEach(b=> b.classList.remove('open'));
+  });
+
+  // Opciones de hora / minuto / AM-PM
+  const OPCIONES_HORA = Array.from({length:12}, (_,i)=> ({ value:String(i+1), label:String(i+1) }));
+  const OPCIONES_MINUTO = Array.from({length:12}, (_,i)=> { const m=String(i*5).padStart(2,'0'); return { value:m, label:m }; });
+  const OPCIONES_AMPM = [{value:'AM', label:'AM'}, {value:'PM', label:'PM'}];
+
+  function poblarSelectsHora(prefix, hhmm){
+    const { h12, m, ampm } = a12h(hhmm);
+    crearMiniSelect(prefix + 'H', OPCIONES_HORA, String(h12));
+    crearMiniSelect(prefix + 'M', OPCIONES_MINUTO, m);
+    crearMiniSelect(prefix + 'AP', OPCIONES_AMPM, ampm);
+  }
 
   // Convierte 'HH:MM' (24h) a {h12, m, ampm}
   function a12h(hhmm){
@@ -1575,26 +1657,28 @@
     if(ampm === 'PM') h += 12;
     return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
   }
-  function setSelectsDesdeHora(prefix, hhmm){
-    const { h12, m, ampm } = a12h(hhmm);
-    document.getElementById(prefix + 'H').value = String(h12);
-    document.getElementById(prefix + 'M').value = m;
-    document.getElementById(prefix + 'AP').value = ampm;
-  }
   function leerHoraDeSelects(prefix){
-    const h12 = document.getElementById(prefix + 'H').value;
-    const m = document.getElementById(prefix + 'M').value;
-    const ampm = document.getElementById(prefix + 'AP').value;
+    const h12 = valorMiniSelect(prefix + 'H');
+    const m = valorMiniSelect(prefix + 'M');
+    const ampm = valorMiniSelect(prefix + 'AP');
+    if(!h12 || !m || !ampm) return null;
     return a24h(h12, m, ampm);
   }
 
-  setSelectsDesdeHora('inpHorarioInicio', horario.inicio);
-  setSelectsDesdeHora('inpHorarioFin', horario.fin);
-  document.getElementById('inpHorarioIntervalo').value = horario.intervalo;
+  poblarSelectsHora('inpHorarioInicio', horario.inicio);
+  poblarSelectsHora('inpHorarioFin', horario.fin);
+
+  // ---------- Mini-select de intervalo ----------
+  const OPCIONES_INTERVALO = [5, 10, 15, 20, 30, 45, 60, 90].map(min=> ({ value:String(min), label: min + ' min' }));
+  if(!OPCIONES_INTERVALO.some(o=> Number(o.value) === Number(horario.intervalo))){
+    OPCIONES_INTERVALO.push({ value:String(horario.intervalo), label: horario.intervalo + ' min' });
+  }
+  crearMiniSelect('inpHorarioIntervalo', OPCIONES_INTERVALO, String(horario.intervalo));
+
   document.getElementById('btnGuardarHorario').addEventListener('click', ()=>{
     const inicio = leerHoraDeSelects('inpHorarioInicio') || '09:00';
     const fin = leerHoraDeSelects('inpHorarioFin') || '18:00';
-    const intervalo = Number(document.getElementById('inpHorarioIntervalo').value) || 30;
+    const intervalo = Number(valorMiniSelect('inpHorarioIntervalo')) || 30;
     horario = {inicio, fin, intervalo};
     saveHorario();
     showToast('Horario guardado');
