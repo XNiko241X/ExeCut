@@ -1,6 +1,6 @@
 {
-  "name": "Turnos Peluquería",
-  "short_name": "Turnos",
+  "name": "ExeCut",
+  "short_name": "ExeCut",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
