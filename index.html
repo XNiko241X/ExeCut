@@ -1154,6 +1154,36 @@
   .horario-card .h-field input::-webkit-calendar-picker-indicator{
     cursor:pointer;
   }
+  .time-select-group{
+    display:flex;
+    gap:6px;
+  }
+  .time-select-group select{
+    flex:1;
+    min-width:0;
+    border:1.5px solid var(--line);
+    background:var(--bg);
+    border-radius:10px;
+    padding:9px 4px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+    text-align:center;
+    text-align-last:center;
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A9A9E' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 4px center;
+    background-size:12px;
+    padding-right:18px;
+  }
+  .time-select-group select.ts-ampm{
+    flex:0 0 58px;
+    padding-right:18px;
+  }
+  .time-select-group select:focus{outline:none; border-color:var(--accent);}
   .horario-card .h-save{
     width:100%;
     border:none;
@@ -1314,11 +1344,27 @@
       <div class="h-row">
         <div class="h-field">
           <label>Desde</label>
-          <input type="time" id="inpHorarioInicio">
+          <div class="time-select-group">
+            <select id="inpHorarioInicioH" aria-label="Hora desde"></select>
+            <select id="inpHorarioInicioM" aria-label="Minuto desde"></select>
+            <select id="inpHorarioInicioAP" class="ts-ampm" aria-label="AM/PM desde">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
         </div>
+      </div>
+      <div class="h-row">
         <div class="h-field">
           <label>Hasta</label>
-          <input type="time" id="inpHorarioFin">
+          <div class="time-select-group">
+            <select id="inpHorarioFinH" aria-label="Hora hasta"></select>
+            <select id="inpHorarioFinM" aria-label="Minuto hasta"></select>
+            <select id="inpHorarioFinAP" class="ts-ampm" aria-label="AM/PM hasta">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="h-row" style="margin-bottom:0;">
@@ -1371,7 +1417,7 @@
   // se cargó (aunque sea desde una copia vieja guardada en caché), la detecta
   // y recarga la página automáticamente para traer la última versión.
   (function(){
-    var APP_VERSION = '2026-08-15.3';
+    var APP_VERSION = '2026-08-15.4';
     function checkForUpdate(){
       try{
         fetch(location.pathname + '?_check=' + Date.now(), {cache:'no-store'})
@@ -1492,12 +1538,62 @@
   document.getElementById('toggleHorario').addEventListener('click', ()=>{
     document.getElementById('horarioCard').classList.toggle('show');
   });
-  document.getElementById('inpHorarioInicio').value = horario.inicio;
-  document.getElementById('inpHorarioFin').value = horario.fin;
+
+  // ---------- Selects de hora (12h con AM/PM) ----------
+  function poblarSelectsHora(prefix){
+    const selH = document.getElementById(prefix + 'H');
+    const selM = document.getElementById(prefix + 'M');
+    selH.innerHTML = '';
+    for(let h=1; h<=12; h++){
+      const opt = document.createElement('option');
+      opt.value = String(h);
+      opt.textContent = String(h);
+      selH.appendChild(opt);
+    }
+    selM.innerHTML = '';
+    for(let m=0; m<60; m+=5){
+      const opt = document.createElement('option');
+      opt.value = String(m).padStart(2,'0');
+      opt.textContent = String(m).padStart(2,'0');
+      selM.appendChild(opt);
+    }
+  }
+  poblarSelectsHora('inpHorarioInicio');
+  poblarSelectsHora('inpHorarioFin');
+
+  // Convierte 'HH:MM' (24h) a {h12, m, ampm}
+  function a12h(hhmm){
+    let [h, m] = hhmm.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    let h12 = h % 12;
+    if(h12 === 0) h12 = 12;
+    return { h12, m: String(m).padStart(2,'0'), ampm };
+  }
+  // Convierte {h12, m, ampm} a 'HH:MM' (24h)
+  function a24h(h12, m, ampm){
+    let h = Number(h12) % 12;
+    if(ampm === 'PM') h += 12;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+  function setSelectsDesdeHora(prefix, hhmm){
+    const { h12, m, ampm } = a12h(hhmm);
+    document.getElementById(prefix + 'H').value = String(h12);
+    document.getElementById(prefix + 'M').value = m;
+    document.getElementById(prefix + 'AP').value = ampm;
+  }
+  function leerHoraDeSelects(prefix){
+    const h12 = document.getElementById(prefix + 'H').value;
+    const m = document.getElementById(prefix + 'M').value;
+    const ampm = document.getElementById(prefix + 'AP').value;
+    return a24h(h12, m, ampm);
+  }
+
+  setSelectsDesdeHora('inpHorarioInicio', horario.inicio);
+  setSelectsDesdeHora('inpHorarioFin', horario.fin);
   document.getElementById('inpHorarioIntervalo').value = horario.intervalo;
   document.getElementById('btnGuardarHorario').addEventListener('click', ()=>{
-    const inicio = document.getElementById('inpHorarioInicio').value || '09:00';
-    const fin = document.getElementById('inpHorarioFin').value || '18:00';
+    const inicio = leerHoraDeSelects('inpHorarioInicio') || '09:00';
+    const fin = leerHoraDeSelects('inpHorarioFin') || '18:00';
     const intervalo = Number(document.getElementById('inpHorarioIntervalo').value) || 30;
     horario = {inicio, fin, intervalo};
     saveHorario();
