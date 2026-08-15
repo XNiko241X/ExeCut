@@ -1451,7 +1451,7 @@
   // se cargó (aunque sea desde una copia vieja guardada en caché), la detecta
   // y recarga la página automáticamente para traer la última versión.
   (function(){
-    var APP_VERSION = '2026-08-15.6';
+    var APP_VERSION = '2026-08-15.7';
     function checkForUpdate(){
       try{
         fetch(location.pathname + '?_check=' + Date.now(), {cache:'no-store'})
@@ -1504,7 +1504,8 @@
   function diaSemanaLabel(fechaStr){
     const [y,m,d] = fechaStr.split('-').map(Number);
     const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
-    return dias[new Date(y, m-1, d).getDay()];
+    const dia = dias[new Date(y, m-1, d).getDay()];
+    return dia.charAt(0).toUpperCase() + dia.slice(1);
   }
   function genId(){ return 't' + Date.now() + Math.random().toString(36).slice(2,7); }
 
@@ -1874,7 +1875,7 @@
 
   function textoTurno(t){
     let texto = `✅ Turno confirmado\n\n`;
-    texto += `📅 ${diaSemanaLabel(t.fecha)} ${fechaLabel(t.fecha)}\n`;
+    texto += `🗓️ ${diaSemanaLabel(t.fecha)} ${fechaLabel(t.fecha)}\n`;
     texto += `🕐 ${t.hora}\n`;
     texto += `👤 ${t.cliente}\n`;
     if(t.servicio) texto += `💈 ${t.servicio}\n`;
