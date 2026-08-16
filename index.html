@@ -1433,7 +1433,7 @@
   <section class="panel active" id="panel-disponibles">
     <div class="date-card">
       <label for="inpFecha">Día</label>
-      <input type="date" id="inpFecha">
+      <input type="date" id="inpFecha" autocomplete="off">
     </div>
 
     <button class="horario-toggle" id="toggleHorario">⚙️ Configurar horario de atención</button>
@@ -1769,8 +1769,8 @@
           <button class="slot-asignar" data-hora="${hora}">Asignar</button>
         </div>
         <div class="slot-form" id="form-${hora.replace(':','')}">
-          <input type="text" class="slot-cliente" placeholder="Nombre del cliente" maxlength="60">
-          <input type="text" class="slot-servicio" placeholder="Servicio (ej: Corte, Color)" maxlength="60">
+          <input type="text" class="slot-cliente" placeholder="Nombre del cliente" maxlength="60" autocomplete="off">
+          <input type="text" class="slot-servicio" placeholder="Servicio (ej: Corte, Color)" maxlength="60" autocomplete="off">
           <div class="slot-form-actions">
             <button class="sf-cancel">Cancelar</button>
             <button class="sf-ok" data-hora="${hora}">Confirmar</button>
