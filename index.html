@@ -701,13 +701,13 @@
     left:50%;
     bottom:calc(20px + env(safe-area-inset-bottom));
     transform:translateX(-50%) translateY(120%);
-    background:var(--ink);
-    color:#fff;
+    background:#1C1C1E;
+    color:var(--ink);
     padding:11px 18px;
     border-radius:999px;
     font-size:13.5px;
     font-weight:600;
-    box-shadow:0 4px 14px rgba(0,0,0,0.2);
+    box-shadow:0 4px 14px rgba(0,0,0,0.35);
     transition:transform .25s ease;
     z-index:50;
     white-space:nowrap;
@@ -1449,7 +1449,6 @@
           <div class="time-select-group">
             <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioInicioH"></button></div>
             <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioInicioM"></button></div>
-            <div class="mini-select-wrap ampm-wrap"><button type="button" class="mini-select-btn ts-ampm" id="inpHorarioInicioAP"></button></div>
           </div>
         </div>
       </div>
@@ -1459,7 +1458,6 @@
           <div class="time-select-group">
             <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioFinH"></button></div>
             <div class="mini-select-wrap"><button type="button" class="mini-select-btn" id="inpHorarioFinM"></button></div>
-            <div class="mini-select-wrap ampm-wrap"><button type="button" class="mini-select-btn ts-ampm" id="inpHorarioFinAP"></button></div>
           </div>
         </div>
       </div>
@@ -1694,38 +1692,23 @@
     document.querySelectorAll('.mini-select-btn.open').forEach(b=> b.classList.remove('open'));
   });
 
-  // Opciones de hora / minuto / AM-PM
-  const OPCIONES_HORA = Array.from({length:12}, (_,i)=> ({ value:String(i+1), label:String(i+1) }));
+  // Opciones de hora / minuto (formato 24 hs, sin AM/PM)
+  const OPCIONES_HORA = Array.from({length:24}, (_,i)=> { const h=String(i).padStart(2,'0'); return { value:h, label:h }; });
   const OPCIONES_MINUTO = Array.from({length:12}, (_,i)=> { const m=String(i*5).padStart(2,'0'); return { value:m, label:m }; });
-  const OPCIONES_AMPM = [{value:'AM', label:'AM'}, {value:'PM', label:'PM'}];
 
   function poblarSelectsHora(prefix, hhmm){
-    const { h12, m, ampm } = a12h(hhmm);
-    crearMiniSelect(prefix + 'H', OPCIONES_HORA, String(h12));
+    let [h, m] = hhmm.split(':');
+    h = String(h).padStart(2,'0');
+    m = String(m).padStart(2,'0');
+    crearMiniSelect(prefix + 'H', OPCIONES_HORA, h);
     crearMiniSelect(prefix + 'M', OPCIONES_MINUTO, m);
-    crearMiniSelect(prefix + 'AP', OPCIONES_AMPM, ampm);
   }
 
-  // Convierte 'HH:MM' (24h) a {h12, m, ampm}
-  function a12h(hhmm){
-    let [h, m] = hhmm.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    let h12 = h % 12;
-    if(h12 === 0) h12 = 12;
-    return { h12, m: String(m).padStart(2,'0'), ampm };
-  }
-  // Convierte {h12, m, ampm} a 'HH:MM' (24h)
-  function a24h(h12, m, ampm){
-    let h = Number(h12) % 12;
-    if(ampm === 'PM') h += 12;
-    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-  }
   function leerHoraDeSelects(prefix){
-    const h12 = valorMiniSelect(prefix + 'H');
+    const h = valorMiniSelect(prefix + 'H');
     const m = valorMiniSelect(prefix + 'M');
-    const ampm = valorMiniSelect(prefix + 'AP');
-    if(!h12 || !m || !ampm) return null;
-    return a24h(h12, m, ampm);
+    if(!h || !m) return null;
+    return h + ':' + m;
   }
 
   poblarSelectsHora('inpHorarioInicio', horario.inicio);
@@ -1746,6 +1729,7 @@
     saveHorario();
     showToast('Horario guardado');
     renderDisponibles();
+    document.getElementById('horarioCard').classList.remove('show');
   });
 
   function renderDisponibles(){
