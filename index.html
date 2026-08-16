@@ -1939,8 +1939,8 @@
       texto += 'No hay horarios libres para ese día.';
     } else {
       const grupos = [];
-      for(let i=0; i<libres.length; i+=4){
-        grupos.push(libres.slice(i, i+4).map(h=>`🕐 ${h}`).join(' • '));
+      for(let i=0; i<libres.length; i+=3){
+        grupos.push(libres.slice(i, i+3).map(h=>`🕐 ${h}`).join(' '));
       }
       texto += grupos.join('\n');
     }
