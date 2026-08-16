@@ -1934,7 +1934,7 @@
   function textoDisponibles(){
     const fecha = ultimaFecha || (inpFecha.value || todayStr());
     const libres = ultimosLibres;
-    let texto = `Turnos disponibles para el ${diaSemanaLabel(fecha)} ${fechaLabel(fecha)}:\n\n`;
+    let texto = `Turnos disponibles para el:\n${diaSemanaLabel(fecha)} ${fechaLabel(fecha)}\n\n`;
     if(libres.length === 0){
       texto += 'No hay horarios libres para ese día.';
     } else {
