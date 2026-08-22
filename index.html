@@ -1264,13 +1264,40 @@
     border-radius:999px;
     cursor:pointer;
   }
+  .slot-form-backdrop{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(20,26,20,0.55);
+    z-index:110;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .slot-form-backdrop.show{display:flex;}
   .slot-form{
     display:none;
-    margin-top:12px;
-    padding-top:12px;
-    border-top:1px dashed var(--line);
   }
-  .slot-form.show{display:block;}
+  .slot-form.show{
+    display:block;
+    background:var(--surface);
+    border-radius:18px;
+    padding:20px 18px 18px;
+    max-width:340px;
+    width:100%;
+    box-shadow:0 12px 30px rgba(0,0,0,0.35);
+    margin-top:0;
+    padding-top:20px;
+    border-top:none;
+  }
+  .slot-form-title{
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    margin:0 0 12px;
+    text-align:center;
+  }
   .slot-form input{
     width:100%;
     border:1.5px solid var(--line);
@@ -1298,6 +1325,7 @@
   }
   .slot-form-actions .sf-ok{background:var(--accent); color:#fff;}
   .slot-form-actions .sf-cancel{background:var(--bg); color:var(--red); border:1.5px solid var(--line) !important;}
+  body.no-scroll{overflow:hidden; position:fixed; width:100%;}
   .turno-card{
     background:var(--surface);
     border-radius:14px;
@@ -1735,6 +1763,8 @@
   function renderDisponibles(){
     const list = document.getElementById('disponiblesList');
     list.innerHTML = '';
+    document.querySelectorAll('.slot-form-backdrop').forEach(b=> b.remove());
+    document.body.classList.remove('no-scroll');
     const fecha = inpFecha.value || todayStr();
     const slots = generarSlots();
     const ocupados = new Set(
@@ -1757,7 +1787,15 @@
           <span class="slot-hora">${hora}</span>
           <button class="slot-asignar" data-hora="${hora}">Asignar</button>
         </div>
+      `;
+      list.appendChild(card);
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'slot-form-backdrop';
+      backdrop.id = 'backdrop-' + hora.replace(':','');
+      backdrop.innerHTML = `
         <div class="slot-form" id="form-${hora.replace(':','')}">
+          <p class="slot-form-title">Asignar turno ${hora}</p>
           <input type="text" class="slot-cliente" placeholder="Nombre del cliente" maxlength="60" autocomplete="off">
           <input type="text" class="slot-servicio" placeholder="Servicio (ej: Corte, Color)" maxlength="60" autocomplete="off">
           <div class="slot-form-actions">
@@ -1766,22 +1804,42 @@
           </div>
         </div>
       `;
-      list.appendChild(card);
+      document.body.appendChild(backdrop);
     });
+
+    function abrirSlotForm(hora){
+      const formId = 'form-' + hora.replace(':','');
+      const backdropId = 'backdrop-' + hora.replace(':','');
+      document.querySelectorAll('.slot-form-backdrop.show').forEach(b=>{ if(b.id !== backdropId) b.classList.remove('show'); });
+      document.getElementById(backdropId).classList.add('show');
+      document.getElementById(formId).classList.add('show');
+      document.body.classList.add('no-scroll');
+    }
+
+    function cerrarSlotForm(backdropEl){
+      backdropEl.classList.remove('show');
+      backdropEl.querySelector('.slot-form').classList.remove('show');
+      if(!document.querySelector('.slot-form-backdrop.show')){
+        document.body.classList.remove('no-scroll');
+      }
+    }
 
     list.querySelectorAll('.slot-asignar').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const formId = 'form-' + btn.dataset.hora.replace(':','');
-        document.querySelectorAll('.slot-form.show').forEach(f=>{ if(f.id !== formId) f.classList.remove('show'); });
-        document.getElementById(formId).classList.toggle('show');
+        abrirSlotForm(btn.dataset.hora);
       });
     });
-    list.querySelectorAll('.sf-cancel').forEach(btn=>{
+    document.querySelectorAll('.slot-form-backdrop').forEach(backdrop=>{
+      backdrop.addEventListener('click', (e)=>{
+        if(e.target === backdrop) cerrarSlotForm(backdrop);
+      });
+    });
+    document.querySelectorAll('.sf-cancel').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        btn.closest('.slot-form').classList.remove('show');
+        cerrarSlotForm(btn.closest('.slot-form-backdrop'));
       });
     });
-    list.querySelectorAll('.sf-ok').forEach(btn=>{
+    document.querySelectorAll('.sf-ok').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const form = btn.closest('.slot-form');
         const cliente = form.querySelector('.slot-cliente').value.trim();
